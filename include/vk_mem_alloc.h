@@ -1967,6 +1967,29 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
     VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
     VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
 
+/** \brief Allocates memory suitable for given `VkBuffer` with stricter alignment requirements.
+
+\param allocator
+\param buffer
+\param pCreateInfo
+\param minAlignment Minimum alignment in bytes for the start of created allocation. If set to 1, it is equivalent to vmaAllocateMemoryForBuffer().
+\param[out] pAllocation Handle to allocated memory.
+\param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().
+
+It only creates #VmaAllocation. To bind the memory to the buffer, use vmaBindBufferMemory().
+
+This is a special-purpose function. In most cases you should use vmaCreateBuffer().
+
+You must free the allocation using vmaFreeMemory() when no longer needed.
+*/
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBufferWithAlignment(
+    VmaAllocator VMA_NOT_NULL allocator,
+    VkBuffer VMA_NOT_NULL_NON_DISPATCHABLE buffer,
+    const VmaAllocationCreateInfo* VMA_NOT_NULL pCreateInfo,
+    VkDeviceSize minAlignment,
+    VmaAllocation VMA_NULLABLE* VMA_NOT_NULL pAllocation,
+    VmaAllocationInfo* VMA_NULLABLE pAllocationInfo);
+
 /** \brief Allocates memory suitable for given `VkImage`.
 
 \param allocator
@@ -15666,6 +15689,50 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBuffer(
     allocator->GetBufferMemoryRequirements(buffer, vkMemReq,
         requiresDedicatedAllocation,
         prefersDedicatedAllocation);
+
+    VkResult result = allocator->AllocateMemory(
+        vkMemReq,
+        requiresDedicatedAllocation,
+        prefersDedicatedAllocation,
+        buffer, // dedicatedBuffer
+        VK_NULL_HANDLE, // dedicatedImage
+        VmaBufferImageUsage::UNKNOWN, // dedicatedBufferImageUsage
+        *pCreateInfo,
+        VMA_SUBALLOCATION_TYPE_BUFFER,
+        1, // allocationCount
+        pAllocation);
+
+    if(pAllocationInfo && result == VK_SUCCESS)
+    {
+        allocator->GetAllocationInfo(*pAllocation, pAllocationInfo);
+    }
+
+    return result;
+}
+
+VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBufferWithAlignment(
+    VmaAllocator allocator,
+    VkBuffer buffer,
+    const VmaAllocationCreateInfo* pCreateInfo,
+    VkDeviceSize minAlignment,
+    VmaAllocation* pAllocation,
+    VmaAllocationInfo* pAllocationInfo)
+{
+    VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && pAllocation);
+
+    VMA_DEBUG_LOG("vmaAllocateMemoryForBuffer");
+
+    VMA_DEBUG_GLOBAL_MUTEX_LOCK
+
+    VkMemoryRequirements vkMemReq = {};
+    bool requiresDedicatedAllocation = false;
+    bool prefersDedicatedAllocation = false;
+    allocator->GetBufferMemoryRequirements(buffer, vkMemReq,
+        requiresDedicatedAllocation,
+        prefersDedicatedAllocation);
+
+    // Update memory requirement to satisfy minimum alignment
+    vkMemReq.alignment = VMA_MAX(vkMemReq.alignment, minAlignment);
 
     VkResult result = allocator->AllocateMemory(
         vkMemReq,
