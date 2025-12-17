@@ -15876,7 +15876,7 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaAllocateMemoryForBufferWithAlignment(
 {
     VMA_ASSERT(allocator && buffer != VK_NULL_HANDLE && pCreateInfo && pAllocation);
 
-    VMA_DEBUG_LOG("vmaAllocateMemoryForBuffer");
+    VMA_DEBUG_LOG("vmaAllocateMemoryForBufferWithAlignment");
 
     VMA_DEBUG_GLOBAL_MUTEX_LOCK
 
